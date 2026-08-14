@@ -4,17 +4,14 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.VideoView
+import android.widget.Toast
 
 class MainActivity : Activity() {
 
     private lateinit var videoView: VideoView
-    private lateinit var statusText: TextView
 
     companion object {
         private const val PICK_VIDEO = 1001
@@ -23,103 +20,56 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        createEditorUI()
-    }
+        setContentView(R.layout.activity_main)
 
-    private fun createEditorUI() {
+        videoView = findViewById(R.id.videoView)
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 24, 24, 24)
+        val importButton: Button = findViewById(R.id.importVideoButton)
+        val playButton: Button = findViewById(R.id.playButton)
+        val pauseButton: Button = findViewById(R.id.pauseButton)
+        val trimButton: Button = findViewById(R.id.trimButton)
+        val splitButton: Button = findViewById(R.id.splitButton)
+        val addTextButton: Button = findViewById(R.id.addTextButton)
+        val exportButton: Button = findViewById(R.id.exportButton)
+
+        importButton.setOnClickListener {
+            openVideoPicker()
         }
 
-        val title = TextView(this).apply {
-            text = "ClipForge Video Editor"
-            textSize = 24f
-            gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 20)
-        }
-
-        statusText = TextView(this).apply {
-            text = "No video selected"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 10)
-        }
-
-        videoView = VideoView(this).apply {
-            visibility = View.GONE
-        }
-
-        val importButton = Button(this).apply {
-            text = "＋ Import Video"
-            setOnClickListener {
-                openVideoPicker()
+        playButton.setOnClickListener {
+            if (videoView.visibility == View.VISIBLE) {
+                videoView.start()
             }
         }
 
-        val playButton = Button(this).apply {
-            text = "▶ Play / Pause"
-            setOnClickListener {
-                if (videoView.isPlaying) {
-                    videoView.pause()
-                } else {
-                    videoView.start()
-                }
+        pauseButton.setOnClickListener {
+            if (videoView.visibility == View.VISIBLE) {
+                videoView.pause()
             }
         }
 
-        val trimButton = Button(this).apply {
-            text = "✂ Trim"
-            setOnClickListener {
-                statusText.text = "Trim tool selected"
-            }
+        trimButton.setOnClickListener {
+            Toast.makeText(this, "Trim tool selected", Toast.LENGTH_SHORT).show()
         }
 
-        val splitButton = Button(this).apply {
-            text = "✂ Split"
-            setOnClickListener {
-                statusText.text = "Split tool selected"
-            }
+        splitButton.setOnClickListener {
+            Toast.makeText(this, "Split tool selected", Toast.LENGTH_SHORT).show()
         }
 
-        val textButton = Button(this).apply {
-            text = "T Add Text"
-            setOnClickListener {
-                statusText.text = "Text tool selected"
-            }
+        addTextButton.setOnClickListener {
+            Toast.makeText(this, "Text tool selected", Toast.LENGTH_SHORT).show()
         }
 
-        val exportButton = Button(this).apply {
-            text = "Export Video"
-            setOnClickListener {
-                statusText.text = "Export feature coming soon"
-            }
+        exportButton.setOnClickListener {
+            Toast.makeText(
+                this,
+                "Export feature coming soon",
+                Toast.LENGTH_SHORT
+            ).show()
         }
-
-        root.addView(title)
-        root.addView(statusText)
-
-        root.addView(
-            videoView,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                500
-            )
-        )
-
-        root.addView(importButton)
-        root.addView(playButton)
-        root.addView(trimButton)
-        root.addView(splitButton)
-        root.addView(textButton)
-        root.addView(exportButton)
-
-        setContentView(root)
     }
 
     private fun openVideoPicker() {
-
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             type = "video/*"
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -136,21 +86,25 @@ class MainActivity : Activity() {
     ) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == PICK_VIDEO &&
+        if (
+            requestCode == PICK_VIDEO &&
             resultCode == RESULT_OK &&
             data?.data != null
         ) {
-
             val videoUri: Uri = data.data!!
 
             videoView.visibility = View.VISIBLE
             videoView.setVideoURI(videoUri)
 
-            statusText.text = "Video loaded successfully"
-
             videoView.setOnPreparedListener {
                 videoView.start()
             }
+
+            Toast.makeText(
+                this,
+                "Video loaded successfully",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 }
