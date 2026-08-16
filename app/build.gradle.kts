@@ -11,7 +11,6 @@ android {
         applicationId = "com.clipforge.videoeditor"
         minSdk = 24
         targetSdk = 35
-
         versionCode = 1
         versionName = "1.0"
     }
@@ -19,7 +18,6 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -34,6 +32,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    buildFeatures {
+        viewBinding = true
     }
 }
 
