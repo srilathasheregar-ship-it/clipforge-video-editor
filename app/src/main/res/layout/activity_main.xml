@@ -2,14 +2,12 @@
 
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#101010">
 
     <!-- TOP BAR -->
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="54dp"
@@ -58,9 +56,7 @@
 
     </LinearLayout>
 
-
     <!-- VIDEO PREVIEW -->
-
     <FrameLayout
         android:id="@+id/previewContainer"
         android:layout_width="match_parent"
@@ -72,13 +68,9 @@
             android:id="@+id/playerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:keepScreenOn="true"
-            app:use_controller="false"
-            app:resize_mode="fit"
-            app:surface_type="texture_view"/>
+            android:keepScreenOn="true"/>
 
         <!-- TEXT OVERLAY -->
-
         <TextView
             android:id="@+id/textOverlay"
             android:layout_width="wrap_content"
@@ -93,7 +85,6 @@
             android:background="#55000000"/>
 
         <!-- PLAY BUTTON -->
-
         <TextView
             android:id="@+id/centerPlayButton"
             android:layout_width="65dp"
@@ -106,7 +97,6 @@
             android:background="#66000000"/>
 
         <!-- FULLSCREEN -->
-
         <TextView
             android:id="@+id/fullscreenButton"
             android:layout_width="50dp"
@@ -119,9 +109,7 @@
 
     </FrameLayout>
 
-
     <!-- TIME / SEEK -->
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -156,9 +144,7 @@
 
     </LinearLayout>
 
-
     <!-- PLAYBACK CONTROLS -->
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="52dp"
@@ -195,9 +181,7 @@
 
     </LinearLayout>
 
-
     <!-- TIMELINE -->
-
     <HorizontalScrollView
         android:id="@+id/timelineScroll"
         android:layout_width="match_parent"
@@ -214,7 +198,6 @@
             android:padding="8dp">
 
             <!-- VIDEO TRACK -->
-
             <LinearLayout
                 android:id="@+id/videoTrack"
                 android:layout_width="650dp"
@@ -244,9 +227,7 @@
 
             </LinearLayout>
 
-
             <!-- TEXT TRACK -->
-
             <LinearLayout
                 android:id="@+id/textTrack"
                 android:layout_width="650dp"
@@ -273,9 +254,7 @@
 
             </LinearLayout>
 
-
             <!-- STICKER TRACK -->
-
             <LinearLayout
                 android:id="@+id/stickerTrack"
                 android:layout_width="650dp"
@@ -302,9 +281,7 @@
 
             </LinearLayout>
 
-
             <!-- AUDIO TRACK -->
-
             <LinearLayout
                 android:id="@+id/audioTrack"
                 android:layout_width="650dp"
@@ -335,9 +312,7 @@
 
     </HorizontalScrollView>
 
-
     <!-- KINEMASTER STYLE TOOLBAR -->
-
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="82dp"
@@ -355,7 +330,7 @@
                 android:id="@+id/mediaButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="▣\nMEDIA"
+                android:text="▣&#10;MEDIA"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -364,7 +339,7 @@
                 android:id="@+id/layerButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="＋\nLAYER"
+                android:text="＋&#10;LAYER"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -373,7 +348,7 @@
                 android:id="@+id/audioButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="♪\nAUDIO"
+                android:text="♪&#10;AUDIO"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -382,7 +357,7 @@
                 android:id="@+id/textButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="T\nTEXT"
+                android:text="T&#10;TEXT"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -391,7 +366,7 @@
                 android:id="@+id/stickerButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="★\nSTICKER"
+                android:text="★&#10;STICKER"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -400,7 +375,7 @@
                 android:id="@+id/effectButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="FX\nEFFECT"
+                android:text="FX&#10;EFFECT"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -409,7 +384,7 @@
                 android:id="@+id/voiceButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="🎙\nVOICE"
+                android:text="🎙&#10;VOICE"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -418,7 +393,7 @@
                 android:id="@+id/speedButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="1×\nSPEED"
+                android:text="1×&#10;SPEED"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -427,7 +402,7 @@
                 android:id="@+id/cropButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="□\nCROP"
+                android:text="□&#10;CROP"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -436,7 +411,7 @@
                 android:id="@+id/rotateButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="⟳\nROTATE"
+                android:text="⟳&#10;ROTATE"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
@@ -445,7 +420,7 @@
                 android:id="@+id/volumeButton"
                 android:layout_width="85dp"
                 android:layout_height="70dp"
-                android:text="🔊\nVOLUME"
+                android:text="🔊&#10;VOLUME"
                 android:textSize="10sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#202020"/>
