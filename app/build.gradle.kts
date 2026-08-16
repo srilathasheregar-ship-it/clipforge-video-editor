@@ -38,10 +38,19 @@ android {
 }
 
 dependencies {
+
+    // AndroidX Core
     implementation("androidx.core:core-ktx:1.15.0")
+
+    // AppCompat
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // Material Components
     implementation("com.google.android.material:material:1.12.0")
 
-    implementation("androidx.media3:media3-exoplayer:1.10.1")
-    implementation("androidx.media3:media3-ui:1.10.1")
+    // Media3 ExoPlayer
+    implementation("androidx.media3:media3-exoplayer:1.6.1")
+
+    // Media3 UI - PlayerView
+    implementation("androidx.media3:media3-ui:1.6.1")
 }
