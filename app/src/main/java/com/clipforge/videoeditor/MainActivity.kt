@@ -1,12 +1,11 @@
 package com.clipforge.videoeditor
 
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.graphics.Color
 import android.view.Gravity
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,17 +24,25 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
 
+    // VIDEO PICKER
     private val videoPicker =
         registerForActivityResult(
-            ActivityResultContracts.OpenDocument()
+            ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
 
             if (uri != null) {
                 loadVideo(uri)
+            } else {
+                Toast.makeText(
+                    this,
+                    "No video selected",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
     private val updateTime = object : Runnable {
+
         override fun run() {
 
             if (::player.isInitialized) {
@@ -75,22 +82,25 @@ class MainActivity : AppCompatActivity() {
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(Color.BLACK)
 
-        // -------------------------
+        // =========================
         // TOP BAR
-        // -------------------------
+        // =========================
 
         val topBar = LinearLayout(this)
 
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
-        topBar.setPadding(16, 12, 16, 12)
-        topBar.setBackgroundColor(Color.rgb(30, 30, 30))
+        topBar.setPadding(8, 8, 8, 8)
+        topBar.setBackgroundColor(
+            Color.rgb(30, 30, 30)
+        )
 
         val title = TextView(this)
 
         title.text = "ClipForge"
         title.textSize = 22f
         title.setTextColor(Color.WHITE)
+        title.gravity = Gravity.CENTER_VERTICAL
 
         topBar.addView(
             title,
@@ -101,47 +111,78 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val undoButton = createButton("↶")
+        val undoButton =
+            createTopButton("↶")
 
         topBar.addView(
             undoButton,
             LinearLayout.LayoutParams(
-                60,
+                55,
                 60
             )
         )
 
-        val redoButton = createButton("↷")
+        val redoButton =
+            createTopButton("↷")
 
         topBar.addView(
             redoButton,
             LinearLayout.LayoutParams(
-                60,
+                55,
                 60
             )
         )
 
-        val exportButton = createButton("EXPORT")
+        val exportButton =
+            createTopButton("EXPORT")
 
         topBar.addView(
             exportButton,
             LinearLayout.LayoutParams(
-                110,
+                100,
                 60
             )
         )
 
-        root.addView(topBar)
+        root.addView(
+            topBar,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                70
+            )
+        )
 
-        // -------------------------
+        // =========================
+        // IMPORT VIDEO BUTTON
+        // =========================
+
+        val importButton = Button(this)
+
+        importButton.text = "＋  IMPORT VIDEO"
+        importButton.textSize = 16f
+        importButton.setTextColor(Color.WHITE)
+
+        importButton.setOnClickListener {
+            openVideoPicker()
+        }
+
+        root.addView(
+            importButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                60
+            )
+        )
+
+        // =========================
         // VIDEO PREVIEW
-        // -------------------------
+        // =========================
 
         playerView = PlayerView(this)
 
         playerView.setBackgroundColor(Color.BLACK)
 
-        playerView.useController = false
+        playerView.useController = true
 
         root.addView(
             playerView,
@@ -152,45 +193,55 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // -------------------------
+        // =========================
         // TIME
-        // -------------------------
+        // =========================
 
         timeText = TextView(this)
 
         timeText.text = "00:00 / 00:00"
-        timeText.textSize = 16f
+        timeText.textSize = 18f
         timeText.setTextColor(Color.WHITE)
         timeText.gravity = Gravity.CENTER
-        timeText.setPadding(10, 12, 10, 12)
-        timeText.setBackgroundColor(Color.rgb(20, 20, 20))
+        timeText.setBackgroundColor(
+            Color.rgb(20, 20, 20)
+        )
 
         root.addView(
             timeText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                55
+                50
             )
         )
 
-        // -------------------------
-        // TIMELINE
-        // -------------------------
+        // =========================
+        // TIMELINE TITLE
+        // =========================
 
         val timelineTitle = TextView(this)
 
         timelineTitle.text = "TIMELINE"
         timelineTitle.textSize = 16f
         timelineTitle.setTextColor(Color.WHITE)
-        timelineTitle.setPadding(10, 8, 10, 8)
+        timelineTitle.setPadding(
+            10,
+            4,
+            10,
+            4
+        )
 
         root.addView(
             timelineTitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                45
+                40
             )
         )
+
+        // =========================
+        // TRACKS
+        // =========================
 
         addTimelineTrack(
             root,
@@ -216,15 +267,21 @@ class MainActivity : AppCompatActivity() {
             Color.rgb(90, 45, 110)
         )
 
-        // -------------------------
-        // TOOLBAR
-        // -------------------------
+        // =========================
+        // BOTTOM TOOLBAR
+        // =========================
 
         val toolbar = LinearLayout(this)
 
-        toolbar.orientation = LinearLayout.HORIZONTAL
-        toolbar.gravity = Gravity.CENTER
-        toolbar.setBackgroundColor(Color.rgb(20, 20, 20))
+        toolbar.orientation =
+            LinearLayout.HORIZONTAL
+
+        toolbar.gravity =
+            Gravity.CENTER
+
+        toolbar.setBackgroundColor(
+            Color.rgb(20, 20, 20)
+        )
 
         addTool(
             toolbar,
@@ -239,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             showMessage(
                 "Layer",
-                "Layer feature coming next."
+                "Coming next"
             )
         }
 
@@ -249,7 +306,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             showMessage(
                 "Audio",
-                "Audio feature coming next."
+                "Coming next"
             )
         }
 
@@ -259,7 +316,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             showMessage(
                 "Text",
-                "Text feature coming next."
+                "Coming next"
             )
         }
 
@@ -269,7 +326,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             showMessage(
                 "Sticker",
-                "Sticker feature coming next."
+                "Coming next"
             )
         }
 
@@ -277,12 +334,16 @@ class MainActivity : AppCompatActivity() {
             toolbar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                75
+                70
             )
         )
 
         setContentView(root)
     }
+
+    // =========================
+    // PLAYER
+    // =========================
 
     private fun initializePlayer() {
 
@@ -293,12 +354,29 @@ class MainActivity : AppCompatActivity() {
         playerView.player = player
     }
 
+    // =========================
+    // OPEN VIDEO PICKER
+    // =========================
+
     private fun openVideoPicker() {
 
-        videoPicker.launch(
-            arrayOf("video/*")
-        )
+        try {
+
+            videoPicker.launch("video/*")
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "Unable to open video picker",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
+
+    // =========================
+    // LOAD VIDEO
+    // =========================
 
     private fun loadVideo(uri: Uri) {
 
@@ -323,11 +401,15 @@ class MainActivity : AppCompatActivity() {
 
             Toast.makeText(
                 this,
-                "Could not load video",
+                "Video could not be loaded",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
+
+    // =========================
+    // TIMELINE
+    // =========================
 
     private fun addTimelineTrack(
         root: LinearLayout,
@@ -337,11 +419,19 @@ class MainActivity : AppCompatActivity() {
 
         val track = TextView(this)
 
-        track.text = "  $name        ─────────────────────"
+        track.text =
+            "  $name       ─────────────────────"
+
         track.textSize = 15f
+
         track.setTextColor(Color.WHITE)
-        track.gravity = Gravity.CENTER_VERTICAL
-        track.setBackgroundColor(backgroundColor)
+
+        track.gravity =
+            Gravity.CENTER_VERTICAL
+
+        track.setBackgroundColor(
+            backgroundColor
+        )
 
         root.addView(
             track,
@@ -352,6 +442,10 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    // =========================
+    // TOOLBAR BUTTON
+    // =========================
+
     private fun addTool(
         toolbar: LinearLayout,
         text: String,
@@ -361,9 +455,14 @@ class MainActivity : AppCompatActivity() {
         val button = Button(this)
 
         button.text = text
+
         button.textSize = 11f
+
         button.setTextColor(Color.WHITE)
-        button.setBackgroundColor(Color.TRANSPARENT)
+
+        button.setBackgroundColor(
+            Color.TRANSPARENT
+        )
 
         button.setOnClickListener {
             action()
@@ -379,19 +478,28 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun createButton(
+    private fun createTopButton(
         text: String
     ): Button {
 
         val button = Button(this)
 
         button.text = text
+
         button.textSize = 12f
+
         button.setTextColor(Color.WHITE)
-        button.setBackgroundColor(Color.TRANSPARENT)
+
+        button.setBackgroundColor(
+            Color.TRANSPARENT
+        )
 
         return button
     }
+
+    // =========================
+    // TIME FORMAT
+    // =========================
 
     private fun formatTime(
         milliseconds: Long
