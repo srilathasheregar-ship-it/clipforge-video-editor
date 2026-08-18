@@ -1,17 +1,14 @@
 package com.clipforge.videoeditor
 
-import android.app.AlertDialog
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,11 +21,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var player: ExoPlayer
     private lateinit var playerView: PlayerView
-    private lateinit var seekBar: SeekBar
-    private lateinit var currentTime: TextView
-    private lateinit var durationTime: TextView
-    private lateinit var playButton: Button
-    private lateinit var textOverlay: TextView
+    private lateinit var timeText: TextView
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -36,335 +29,268 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri: Uri? ->
+
             if (uri != null) {
                 loadVideo(uri)
             }
         }
 
+    private val updateTime = object : Runnable {
+        override fun run() {
+
+            if (::player.isInitialized) {
+
+                val position = player.currentPosition
+                val duration = player.duration
+
+                if (duration > 0) {
+
+                    timeText.text =
+                        "${formatTime(position)} / ${formatTime(duration)}"
+                }
+            }
+
+            handler.postDelayed(this, 500)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
+        window.statusBarColor = Color.BLACK
+        window.navigationBarColor = Color.BLACK
+
         createEditor()
-        createPlayer()
-        startProgressUpdater()
+
+        initializePlayer()
+
+        handler.post(updateTime)
     }
 
     private fun createEditor() {
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(15, 15, 15))
-        }
+        val root = LinearLayout(this)
 
+        root.orientation = LinearLayout.VERTICAL
+        root.setBackgroundColor(Color.BLACK)
+
+        // -------------------------
         // TOP BAR
-        val topBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(12, 8, 12, 8)
-            setBackgroundColor(Color.rgb(25, 25, 25))
-        }
+        // -------------------------
 
-        val title = TextView(this).apply {
-            text = "ClipForge"
-            textSize = 20f
-            setTextColor(Color.WHITE)
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        }
+        val topBar = LinearLayout(this)
+
+        topBar.orientation = LinearLayout.HORIZONTAL
+        topBar.gravity = Gravity.CENTER_VERTICAL
+        topBar.setPadding(16, 12, 16, 12)
+        topBar.setBackgroundColor(Color.rgb(30, 30, 30))
+
+        val title = TextView(this)
+
+        title.text = "ClipForge"
+        title.textSize = 22f
+        title.setTextColor(Color.WHITE)
 
         topBar.addView(
             title,
             LinearLayout.LayoutParams(
                 0,
-                60
-            ).apply {
-                weight = 1f
-            }
+                60,
+                1f
+            )
         )
 
-        val undo = makeButton("↶")
-        val redo = makeButton("↷")
-        val export = makeButton("EXPORT")
+        val undoButton = createButton("↶")
 
-        topBar.addView(undo)
-        topBar.addView(redo)
-        topBar.addView(export)
+        topBar.addView(
+            undoButton,
+            LinearLayout.LayoutParams(
+                60,
+                60
+            )
+        )
+
+        val redoButton = createButton("↷")
+
+        topBar.addView(
+            redoButton,
+            LinearLayout.LayoutParams(
+                60,
+                60
+            )
+        )
+
+        val exportButton = createButton("EXPORT")
+
+        topBar.addView(
+            exportButton,
+            LinearLayout.LayoutParams(
+                110,
+                60
+            )
+        )
 
         root.addView(topBar)
 
+        // -------------------------
         // VIDEO PREVIEW
-        val preview = android.widget.FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-        }
+        // -------------------------
 
-        playerView = PlayerView(this).apply {
-            useController = false
-            setKeepContentOnPlayerReset(true)
-        }
+        playerView = PlayerView(this)
 
-        preview.addView(
+        playerView.setBackgroundColor(Color.BLACK)
+
+        playerView.useController = false
+
+        root.addView(
             playerView,
-            android.widget.FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
-
-        textOverlay = TextView(this).apply {
-            text = ""
-            textSize = 28f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.argb(120, 0, 0, 0))
-            setPadding(12, 8, 12, 8)
-            visibility = View.GONE
-            gravity = Gravity.CENTER
-        }
-
-        val overlayParams =
-            android.widget.FrameLayout.LayoutParams(
-                -2,
-                -2
-            ).apply {
-                gravity = Gravity.CENTER
-            }
-
-        preview.addView(textOverlay, overlayParams)
-
-        val playCenter = makeButton("▶")
-        playCenter.setOnClickListener {
-            togglePlayback()
-        }
-
-        val playParams =
-            android.widget.FrameLayout.LayoutParams(
-                150,
-                100
-            ).apply {
-                gravity = Gravity.CENTER
-            }
-
-        preview.addView(playCenter, playParams)
-
-        root.addView(
-            preview,
             LinearLayout.LayoutParams(
-                -1,
-                0
-            ).apply {
-                weight = 1f
-            }
-        )
-
-        // TIME BAR
-        val timeLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 4, 8, 4)
-            setBackgroundColor(Color.rgb(10, 10, 10))
-        }
-
-        currentTime = makeLabel("00:00")
-        durationTime = makeLabel("00:00")
-
-        seekBar = SeekBar(this)
-
-        timeLayout.addView(
-            currentTime,
-            LinearLayout.LayoutParams(60, -2)
-        )
-
-        timeLayout.addView(
-            seekBar,
-            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
-                -2
-            ).apply {
-                weight = 1f
-            }
-        )
-
-        timeLayout.addView(
-            durationTime,
-            LinearLayout.LayoutParams(60, -2)
-        )
-
-        root.addView(timeLayout)
-
-        // PLAYBACK
-        val playback = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.rgb(25, 25, 25))
-        }
-
-        val previous = makeButton("|◀")
-        playButton = makeButton("▶")
-        val next = makeButton("▶|")
-
-        previous.setOnClickListener {
-            player.seekTo(0)
-        }
-
-        playButton.setOnClickListener {
-            togglePlayback()
-        }
-
-        next.setOnClickListener {
-            if (player.duration > 0) {
-                player.seekTo(player.duration)
-            }
-        }
-
-        playback.addView(previous)
-        playback.addView(playButton)
-        playback.addView(next)
-
-        root.addView(
-            playback,
-            LinearLayout.LayoutParams(
-                -1,
-                60
+                1f
             )
         )
 
+        // -------------------------
+        // TIME
+        // -------------------------
+
+        timeText = TextView(this)
+
+        timeText.text = "00:00 / 00:00"
+        timeText.textSize = 16f
+        timeText.setTextColor(Color.WHITE)
+        timeText.gravity = Gravity.CENTER
+        timeText.setPadding(10, 12, 10, 12)
+        timeText.setBackgroundColor(Color.rgb(20, 20, 20))
+
+        root.addView(
+            timeText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                55
+            )
+        )
+
+        // -------------------------
         // TIMELINE
-        val timelineTitle = makeLabel("TIMELINE")
-        timelineTitle.textSize = 14f
-        timelineTitle.setPadding(12, 8, 0, 8)
+        // -------------------------
 
-        root.addView(timelineTitle)
+        val timelineTitle = TextView(this)
 
-        val timeline = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8, 4, 8, 4)
-            setBackgroundColor(Color.rgb(13, 13, 13))
-        }
-
-        timeline.addView(makeTrack("VIDEO", Color.rgb(55, 71, 79)))
-        timeline.addView(makeTrack("TEXT", Color.rgb(255, 193, 7)))
-        timeline.addView(makeTrack("STICKER", Color.rgb(142, 68, 173)))
-        timeline.addView(makeTrack("AUDIO", Color.rgb(106, 27, 154)))
+        timelineTitle.text = "TIMELINE"
+        timelineTitle.textSize = 16f
+        timelineTitle.setTextColor(Color.WHITE)
+        timelineTitle.setPadding(10, 8, 10, 8)
 
         root.addView(
-            timeline,
+            timelineTitle,
             LinearLayout.LayoutParams(
-                -1,
-                170
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                45
             )
         )
 
+        addTimelineTrack(
+            root,
+            "VIDEO",
+            Color.rgb(65, 85, 95)
+        )
+
+        addTimelineTrack(
+            root,
+            "TEXT",
+            Color.rgb(255, 190, 0)
+        )
+
+        addTimelineTrack(
+            root,
+            "STICKER",
+            Color.rgb(140, 70, 170)
+        )
+
+        addTimelineTrack(
+            root,
+            "AUDIO",
+            Color.rgb(90, 45, 110)
+        )
+
+        // -------------------------
         // TOOLBAR
-        val scroll =
-            android.widget.HorizontalScrollView(this)
+        // -------------------------
 
-        val tools = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.rgb(25, 25, 25))
+        val toolbar = LinearLayout(this)
+
+        toolbar.orientation = LinearLayout.HORIZONTAL
+        toolbar.gravity = Gravity.CENTER
+        toolbar.setBackgroundColor(Color.rgb(20, 20, 20))
+
+        addTool(
+            toolbar,
+            "MEDIA"
+        ) {
+            openVideoPicker()
         }
 
-        tools.addView(
-            makeTool("MEDIA") {
-                openVideoPicker()
-            }
-        )
+        addTool(
+            toolbar,
+            "LAYER"
+        ) {
+            showMessage(
+                "Layer",
+                "Layer feature coming next."
+            )
+        }
 
-        tools.addView(
-            makeTool("LAYER") {
-                showMessage("Layer", "Layer tool selected")
-            }
-        )
+        addTool(
+            toolbar,
+            "AUDIO"
+        ) {
+            showMessage(
+                "Audio",
+                "Audio feature coming next."
+            )
+        }
 
-        tools.addView(
-            makeTool("AUDIO") {
-                showMessage("Audio", "Audio tool selected")
-            }
-        )
+        addTool(
+            toolbar,
+            "TEXT"
+        ) {
+            showMessage(
+                "Text",
+                "Text feature coming next."
+            )
+        }
 
-        tools.addView(
-            makeTool("TEXT") {
-                showTextDialog()
-            }
-        )
-
-        tools.addView(
-            makeTool("STICKER") {
-                addSticker()
-            }
-        )
-
-        tools.addView(
-            makeTool("FX") {
-                showMessage("Effects", "Effects tool selected")
-            }
-        )
-
-        tools.addView(
-            makeTool("VOICE") {
-                showMessage("Voice", "Voice recording selected")
-            }
-        )
-
-        tools.addView(
-            makeTool("SPEED") {
-                changeSpeed()
-            }
-        )
-
-        tools.addView(
-            makeTool("CROP") {
-                showMessage("Crop", "Crop tool selected")
-            }
-        )
-
-        tools.addView(
-            makeTool("ROTATE") {
-                playerView.rotation =
-                    (playerView.rotation + 90f) % 360f
-            }
-        )
-
-        tools.addView(
-            makeTool("VOLUME") {
-                changeVolume()
-            }
-        )
-
-        scroll.addView(tools)
+        addTool(
+            toolbar,
+            "STICKER"
+        ) {
+            showMessage(
+                "Sticker",
+                "Sticker feature coming next."
+            )
+        }
 
         root.addView(
-            scroll,
+            toolbar,
             LinearLayout.LayoutParams(
-                -1,
-                85
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                75
             )
         )
-
-        export.setOnClickListener {
-            showMessage(
-                "Export",
-                "Export engine will be added next."
-            )
-        }
 
         setContentView(root)
     }
 
-    private fun createPlayer() {
+    private fun initializePlayer() {
 
-        player = ExoPlayer.Builder(this).build()
+        player =
+            ExoPlayer.Builder(this)
+                .build()
 
         playerView.player = player
-
-        player.addListener(
-            object : androidx.media3.common.Player.Listener {
-
-                override fun onIsPlayingChanged(
-                    isPlaying: Boolean
-                ) {
-                    playButton.text =
-                        if (isPlaying) "Ⅱ" else "▶"
-                }
-            }
-        )
     }
 
     private fun openVideoPicker() {
@@ -376,269 +302,95 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadVideo(uri: Uri) {
 
-        val mediaItem =
-            MediaItem.fromUri(uri)
+        try {
 
-        player.setMediaItem(mediaItem)
+            val mediaItem =
+                MediaItem.fromUri(uri)
 
-        player.prepare()
+            player.setMediaItem(mediaItem)
 
-        player.play()
+            player.prepare()
 
-        Toast.makeText(
-            this,
-            "Video loaded",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun togglePlayback() {
-
-        if (player.isPlaying) {
-            player.pause()
-        } else {
             player.play()
+
+            Toast.makeText(
+                this,
+                "Video loaded successfully",
+                Toast.LENGTH_SHORT
+            ).show()
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "Could not load video",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
-    private fun startProgressUpdater() {
+    private fun addTimelineTrack(
+        root: LinearLayout,
+        name: String,
+        backgroundColor: Int
+    ) {
 
-        handler.post(
-            object : Runnable {
+        val track = TextView(this)
 
-                override fun run() {
+        track.text = "  $name        ─────────────────────"
+        track.textSize = 15f
+        track.setTextColor(Color.WHITE)
+        track.gravity = Gravity.CENTER_VERTICAL
+        track.setBackgroundColor(backgroundColor)
 
-                    if (::player.isInitialized) {
-
-                        val duration = player.duration
-                        val position = player.currentPosition
-
-                        if (duration > 0) {
-
-                            seekBar.max =
-                                duration.toInt()
-
-                            seekBar.progress =
-                                position.toInt()
-
-                            currentTime.text =
-                                formatTime(position)
-
-                            durationTime.text =
-                                formatTime(duration)
-                        }
-                    }
-
-                    handler.postDelayed(
-                        this,
-                        300
-                    )
-                }
-            }
-        )
-
-        seekBar.setOnSeekBarChangeListener(
-            object :
-                SeekBar.OnSeekBarChangeListener {
-
-                override fun onProgressChanged(
-                    seekBar: SeekBar?,
-                    progress: Int,
-                    fromUser: Boolean
-                ) {
-                    if (fromUser) {
-                        player.seekTo(
-                            progress.toLong()
-                        )
-                    }
-                }
-
-                override fun onStartTrackingTouch(
-                    seekBar: SeekBar?
-                ) {}
-
-                override fun onStopTrackingTouch(
-                    seekBar: SeekBar?
-                ) {}
-            }
+        root.addView(
+            track,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                35
+            )
         )
     }
 
-    private fun showTextDialog() {
-
-        val input = EditText(this)
-
-        input.hint = "Enter text"
-
-        AlertDialog.Builder(this)
-            .setTitle("Add Text")
-            .setView(input)
-            .setNegativeButton(
-                "CANCEL",
-                null
-            )
-            .setPositiveButton(
-                "ADD"
-            ) { _, _ ->
-
-                val value =
-                    input.text.toString()
-
-                if (value.isNotBlank()) {
-
-                    textOverlay.text =
-                        value
-
-                    textOverlay.textSize =
-                        28f
-
-                    textOverlay.visibility =
-                        View.VISIBLE
-                }
-            }
-            .show()
-    }
-
-    private fun addSticker() {
-
-        textOverlay.text = "⭐"
-
-        textOverlay.textSize = 50f
-
-        textOverlay.setBackgroundColor(
-            Color.TRANSPARENT
-        )
-
-        textOverlay.visibility =
-            View.VISIBLE
-    }
-
-    private fun changeSpeed() {
-
-        val speeds =
-            arrayOf(
-                "0.5×",
-                "0.75×",
-                "1.0×",
-                "1.25×",
-                "1.5×",
-                "2.0×"
-            )
-
-        AlertDialog.Builder(this)
-            .setTitle("Speed")
-            .setItems(speeds) { _, which ->
-
-                player.setPlaybackSpeed(
-                    speeds[which]
-                        .replace("×", "")
-                        .toFloat()
-                )
-            }
-            .show()
-    }
-
-    private fun changeVolume() {
-
-        val values =
-            arrayOf(
-                "Mute",
-                "25%",
-                "50%",
-                "75%",
-                "100%"
-            )
-
-        AlertDialog.Builder(this)
-            .setTitle("Volume")
-            .setItems(values) { _, which ->
-
-                player.volume =
-                    when (which) {
-                        0 -> 0f
-                        1 -> 0.25f
-                        2 -> 0.5f
-                        3 -> 0.75f
-                        else -> 1f
-                    }
-            }
-            .show()
-    }
-
-    private fun makeButton(
-        text: String
-    ): Button {
-
-        return Button(this).apply {
-            this.text = text
-            setTextColor(Color.WHITE)
-            setBackgroundColor(
-                Color.rgb(45, 45, 45)
-            )
-        }
-    }
-
-    private fun makeTool(
+    private fun addTool(
+        toolbar: LinearLayout,
         text: String,
         action: () -> Unit
+    ) {
+
+        val button = Button(this)
+
+        button.text = text
+        button.textSize = 11f
+        button.setTextColor(Color.WHITE)
+        button.setBackgroundColor(Color.TRANSPARENT)
+
+        button.setOnClickListener {
+            action()
+        }
+
+        toolbar.addView(
+            button,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1f
+            )
+        )
+    }
+
+    private fun createButton(
+        text: String
     ): Button {
 
-        return Button(this).apply {
-            this.text = text
-            setTextColor(Color.WHITE)
-            setBackgroundColor(
-                Color.rgb(32, 32, 32)
-            )
+        val button = Button(this)
 
-            setOnClickListener {
-                action()
-            }
-        }
-    }
+        button.text = text
+        button.textSize = 12f
+        button.setTextColor(Color.WHITE)
+        button.setBackgroundColor(Color.TRANSPARENT)
 
-    private fun makeLabel(
-        text: String
-    ): TextView {
-
-        return TextView(this).apply {
-            this.text = text
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER_VERTICAL
-        }
-    }
-
-    private fun makeTrack(
-        name: String,
-        background: Int
-    ): TextView {
-
-        return TextView(this).apply {
-
-            text = "$name     ━━━━━━━━━━━━━━━━━━━━━"
-
-            textSize = 12f
-
-            setTextColor(Color.WHITE)
-
-            setBackgroundColor(background)
-
-            gravity = Gravity.CENTER_VERTICAL
-
-            setPadding(12, 0, 0, 0)
-
-            layoutParams =
-                LinearLayout.LayoutParams(
-                    -1,
-                    36
-                ).apply {
-                    setMargins(
-                        0,
-                        2,
-                        0,
-                        2
-                    )
-                }
-        }
+        return button
     }
 
     private fun formatTime(
@@ -652,11 +404,11 @@ class MainActivity : AppCompatActivity() {
         val totalSeconds =
             milliseconds / 1000
 
+        val minutes =
+            totalSeconds / 60
+
         val seconds =
             totalSeconds % 60
-
-        val minutes =
-            (totalSeconds / 60) % 60
 
         return String.format(
             "%02d:%02d",
@@ -677,11 +429,18 @@ class MainActivity : AppCompatActivity() {
         ).show()
     }
 
+    override fun onStop() {
+
+        super.onStop()
+
+        if (::player.isInitialized) {
+            player.pause()
+        }
+    }
+
     override fun onDestroy() {
 
-        handler.removeCallbacksAndMessages(
-            null
-        )
+        handler.removeCallbacks(updateTime)
 
         if (::player.isInitialized) {
             player.release()
