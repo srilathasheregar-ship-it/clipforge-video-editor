@@ -1,36 +1,51 @@
 package com.clipforge.videoeditor
 
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import android.graphics.Color
+import android.graphics.Typeface
+import android.view.Window
+import android.view.WindowManager
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var player: ExoPlayer
+    private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
+    private lateinit var playButton: Button
+    private lateinit var importButton: Button
     private lateinit var timeText: TextView
+    private lateinit var seekBar: SeekBar
+    private lateinit var statusText: TextView
 
-    private val handler = Handler(Looper.getMainLooper())
-
-    // VIDEO PICKER
     private val videoPicker =
-        registerForActivityResult(
-            ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
 
             if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (_: Exception) {
+                    // Some providers do not support persistable permissions.
+                }
+
                 loadVideo(uri)
             } else {
                 Toast.makeText(
@@ -41,106 +56,61 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    private val updateTime = object : Runnable {
-
-        override fun run() {
-
-            if (::player.isInitialized) {
-
-                val position = player.currentPosition
-                val duration = player.duration
-
-                if (duration > 0) {
-
-                    timeText.text =
-                        "${formatTime(position)} / ${formatTime(duration)}"
-                }
-            }
-
-            handler.postDelayed(this, 500)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
 
-        window.statusBarColor = Color.BLACK
-        window.navigationBarColor = Color.BLACK
+        window.setStatusBarColor(Color.BLACK)
+        window.setNavigationBarColor(Color.BLACK)
 
-        createEditor()
-
-        initializePlayer()
-
-        handler.post(updateTime)
+        createEditorScreen()
+        createPlayer()
     }
 
-    private fun createEditor() {
+    private fun createEditorScreen() {
 
         val root = LinearLayout(this)
-
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(Color.BLACK)
 
-        // =========================
+        // ---------------------------------------------------------
         // TOP BAR
-        // =========================
+        // ---------------------------------------------------------
 
         val topBar = LinearLayout(this)
-
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
-        topBar.setPadding(8, 8, 8, 8)
-        topBar.setBackgroundColor(
-            Color.rgb(30, 30, 30)
-        )
+        topBar.setPadding(16, 8, 16, 8)
+        topBar.setBackgroundColor(Color.rgb(30, 30, 30))
 
-        val title = TextView(this)
-
-        title.text = "ClipForge"
-        title.textSize = 22f
-        title.setTextColor(Color.WHITE)
-        title.gravity = Gravity.CENTER_VERTICAL
+        val logo = TextView(this)
+        logo.text = "ClipForge"
+        logo.textSize = 24f
+        logo.setTextColor(Color.WHITE)
+        logo.setTypeface(null, Typeface.BOLD)
 
         topBar.addView(
-            title,
+            logo,
             LinearLayout.LayoutParams(
                 0,
-                60,
+                64,
                 1f
             )
         )
 
-        val undoButton =
-            createTopButton("↶")
+        importButton = Button(this)
+        importButton.text = "IMPORT VIDEO"
+        importButton.textSize = 12f
+        importButton.setTextColor(Color.WHITE)
+
+        importButton.setOnClickListener {
+            openVideoPicker()
+        }
 
         topBar.addView(
-            undoButton,
+            importButton,
             LinearLayout.LayoutParams(
-                55,
-                60
-            )
-        )
-
-        val redoButton =
-            createTopButton("↷")
-
-        topBar.addView(
-            redoButton,
-            LinearLayout.LayoutParams(
-                55,
-                60
-            )
-        )
-
-        val exportButton =
-            createTopButton("EXPORT")
-
-        topBar.addView(
-            exportButton,
-            LinearLayout.LayoutParams(
-                100,
-                60
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                64
             )
         )
 
@@ -148,44 +118,57 @@ class MainActivity : AppCompatActivity() {
             topBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                70
+                72
             )
         )
 
-        // =========================
-        // IMPORT VIDEO BUTTON
-        // =========================
-
-        val importButton = Button(this)
-
-        importButton.text = "＋  IMPORT VIDEO"
-        importButton.textSize = 16f
-        importButton.setTextColor(Color.WHITE)
-
-        importButton.setOnClickListener {
-            openVideoPicker()
-        }
-
-        root.addView(
-            importButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                60
-            )
-        )
-
-        // =========================
+        // ---------------------------------------------------------
         // VIDEO PREVIEW
-        // =========================
+        // ---------------------------------------------------------
+
+        val previewContainer = FrameLayout(this)
+        previewContainer.setBackgroundColor(Color.BLACK)
 
         playerView = PlayerView(this)
 
+        playerView.useController = false
+        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
         playerView.setBackgroundColor(Color.BLACK)
 
-        playerView.useController = true
+        previewContainer.addView(
+            playerView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        // Center play button
+
+        playButton = Button(this)
+        playButton.text = "▶"
+        playButton.textSize = 24f
+        playButton.setTextColor(Color.WHITE)
+        playButton.setBackgroundColor(Color.DKGRAY)
+
+        playButton.setOnClickListener {
+            togglePlayback()
+        }
+
+        val playParams = FrameLayout.LayoutParams(
+            110,
+            80
+        )
+
+        playParams.gravity = Gravity.CENTER
+
+        previewContainer.addView(
+            playButton,
+            playParams
+        )
 
         root.addView(
-            playerView,
+            previewContainer,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -193,313 +176,459 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // =========================
-        // TIME
-        // =========================
+        // ---------------------------------------------------------
+        // VIDEO TIME
+        // ---------------------------------------------------------
+
+        val timeContainer = LinearLayout(this)
+
+        timeContainer.orientation = LinearLayout.HORIZONTAL
+        timeContainer.gravity = Gravity.CENTER_VERTICAL
+        timeContainer.setPadding(12, 4, 12, 4)
+        timeContainer.setBackgroundColor(Color.rgb(20, 20, 20))
 
         timeText = TextView(this)
-
         timeText.text = "00:00 / 00:00"
-        timeText.textSize = 18f
+        timeText.textSize = 16f
         timeText.setTextColor(Color.WHITE)
-        timeText.gravity = Gravity.CENTER
-        timeText.setBackgroundColor(
-            Color.rgb(20, 20, 20)
+
+        timeContainer.addView(
+            timeText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                50
+            )
         )
 
         root.addView(
-            timeText,
+            timeContainer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                55
+            )
+        )
+
+        // ---------------------------------------------------------
+        // SEEK BAR
+        // ---------------------------------------------------------
+
+        seekBar = SeekBar(this)
+
+        seekBar.max = 1000
+        seekBar.progress = 0
+
+        seekBar.setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+
+                override fun onProgressChanged(
+                    seekBar: SeekBar?,
+                    progress: Int,
+                    fromUser: Boolean
+                ) {
+
+                    if (fromUser) {
+                        val duration = player?.duration ?: 0L
+
+                        if (duration > 0) {
+                            val position =
+                                duration * progress / 1000L
+
+                            player?.seekTo(position)
+                        }
+                    }
+                }
+
+                override fun onStartTrackingTouch(
+                    seekBar: SeekBar?
+                ) {
+                }
+
+                override fun onStopTrackingTouch(
+                    seekBar: SeekBar?
+                ) {
+                }
+            }
+        )
+
+        root.addView(
+            seekBar,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                45
+            )
+        )
+
+        // ---------------------------------------------------------
+        // TIMELINE TITLE
+        // ---------------------------------------------------------
+
+        val timelineTitle = TextView(this)
+
+        timelineTitle.text = "TIMELINE"
+        timelineTitle.textSize = 18f
+        timelineTitle.setTextColor(Color.WHITE)
+        timelineTitle.setTypeface(null, Typeface.BOLD)
+        timelineTitle.setPadding(10, 8, 10, 8)
+        timelineTitle.setBackgroundColor(Color.rgb(15, 15, 15))
+
+        root.addView(
+            timelineTitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 50
             )
         )
 
-        // =========================
-        // TIMELINE TITLE
-        // =========================
+        // ---------------------------------------------------------
+        // TIMELINE TRACKS
+        // ---------------------------------------------------------
 
-        val timelineTitle = TextView(this)
+        val timeline = LinearLayout(this)
+        timeline.orientation = LinearLayout.VERTICAL
+        timeline.setBackgroundColor(Color.rgb(10, 10, 10))
 
-        timelineTitle.text = "TIMELINE"
-        timelineTitle.textSize = 16f
-        timelineTitle.setTextColor(Color.WHITE)
-        timelineTitle.setPadding(
-            10,
-            4,
-            10,
-            4
+        timeline.addView(
+            createTrack("VIDEO", Color.rgb(70, 95, 105))
+        )
+
+        timeline.addView(
+            createTrack("TEXT", Color.rgb(255, 190, 0))
+        )
+
+        timeline.addView(
+            createTrack("STICKER", Color.rgb(145, 65, 180))
+        )
+
+        timeline.addView(
+            createTrack("AUDIO", Color.rgb(70, 20, 80))
         )
 
         root.addView(
-            timelineTitle,
+            timeline,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                40
+                200
             )
         )
 
-        // =========================
-        // TRACKS
-        // =========================
+        // ---------------------------------------------------------
+        // BOTTOM TOOL BAR
+        // ---------------------------------------------------------
 
-        addTimelineTrack(
-            root,
-            "VIDEO",
-            Color.rgb(65, 85, 95)
-        )
+        val bottomBar = LinearLayout(this)
 
-        addTimelineTrack(
-            root,
-            "TEXT",
-            Color.rgb(255, 190, 0)
-        )
+        bottomBar.orientation = LinearLayout.HORIZONTAL
+        bottomBar.gravity = Gravity.CENTER
+        bottomBar.setBackgroundColor(Color.rgb(20, 20, 20))
 
-        addTimelineTrack(
-            root,
-            "STICKER",
-            Color.rgb(140, 70, 170)
-        )
-
-        addTimelineTrack(
-            root,
-            "AUDIO",
-            Color.rgb(90, 45, 110)
-        )
-
-        // =========================
-        // BOTTOM TOOLBAR
-        // =========================
-
-        val toolbar = LinearLayout(this)
-
-        toolbar.orientation =
-            LinearLayout.HORIZONTAL
-
-        toolbar.gravity =
-            Gravity.CENTER
-
-        toolbar.setBackgroundColor(
-            Color.rgb(20, 20, 20)
-        )
-
-        addTool(
-            toolbar,
-            "MEDIA"
-        ) {
-            openVideoPicker()
-        }
-
-        addTool(
-            toolbar,
-            "LAYER"
-        ) {
-            showMessage(
-                "Layer",
-                "Coming next"
-            )
-        }
-
-        addTool(
-            toolbar,
-            "AUDIO"
-        ) {
-            showMessage(
-                "Audio",
-                "Coming next"
-            )
-        }
-
-        addTool(
-            toolbar,
-            "TEXT"
-        ) {
-            showMessage(
-                "Text",
-                "Coming next"
-            )
-        }
-
-        addTool(
-            toolbar,
-            "STICKER"
-        ) {
-            showMessage(
-                "Sticker",
-                "Coming next"
-            )
-        }
+        addToolButton(bottomBar, "MEDIA")
+        addToolButton(bottomBar, "LAYER")
+        addToolButton(bottomBar, "AUDIO")
+        addToolButton(bottomBar, "TEXT")
+        addToolButton(bottomBar, "STICKER")
 
         root.addView(
-            toolbar,
+            bottomBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 70
             )
         )
 
+        // ---------------------------------------------------------
+        // STATUS MESSAGE
+        // ---------------------------------------------------------
+
+        statusText = TextView(this)
+        statusText.text = "Ready — import a video to begin"
+        statusText.textSize = 13f
+        statusText.setTextColor(Color.LTGRAY)
+        statusText.gravity = Gravity.CENTER
+        statusText.setPadding(5, 5, 5, 5)
+        statusText.setBackgroundColor(Color.BLACK)
+
+        root.addView(
+            statusText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                45
+            )
+        )
+
         setContentView(root)
     }
 
-    // =========================
-    // PLAYER
-    // =========================
-
-    private fun initializePlayer() {
-
-        player =
-            ExoPlayer.Builder(this)
-                .build()
-
-        playerView.player = player
-    }
-
-    // =========================
-    // OPEN VIDEO PICKER
-    // =========================
-
-    private fun openVideoPicker() {
-
-        try {
-
-            videoPicker.launch("video/*")
-
-        } catch (e: Exception) {
-
-            Toast.makeText(
-                this,
-                "Unable to open video picker",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
-    // =========================
-    // LOAD VIDEO
-    // =========================
-
-    private fun loadVideo(uri: Uri) {
-
-        try {
-
-            val mediaItem =
-                MediaItem.fromUri(uri)
-
-            player.setMediaItem(mediaItem)
-
-            player.prepare()
-
-            player.play()
-
-            Toast.makeText(
-                this,
-                "Video loaded successfully",
-                Toast.LENGTH_SHORT
-            ).show()
-
-        } catch (e: Exception) {
-
-            Toast.makeText(
-                this,
-                "Video could not be loaded",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
-    // =========================
-    // TIMELINE
-    // =========================
-
-    private fun addTimelineTrack(
-        root: LinearLayout,
+    private fun createTrack(
         name: String,
-        backgroundColor: Int
-    ) {
+        color: Int
+    ): TextView {
 
         val track = TextView(this)
 
-        track.text =
-            "  $name       ─────────────────────"
-
+        track.text = name
         track.textSize = 15f
-
         track.setTextColor(Color.WHITE)
+        track.gravity = Gravity.CENTER_VERTICAL
+        track.setTypeface(null, Typeface.BOLD)
 
-        track.gravity =
-            Gravity.CENTER_VERTICAL
+        track.setPadding(10, 0, 0, 0)
+        track.setBackgroundColor(color)
 
-        track.setBackgroundColor(
-            backgroundColor
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            45
         )
 
-        root.addView(
-            track,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                35
-            )
-        )
+        params.setMargins(0, 2, 0, 2)
+
+        track.layoutParams = params
+
+        return track
     }
 
-    // =========================
-    // TOOLBAR BUTTON
-    // =========================
-
-    private fun addTool(
-        toolbar: LinearLayout,
-        text: String,
-        action: () -> Unit
+    private fun addToolButton(
+        parent: LinearLayout,
+        title: String
     ) {
 
         val button = Button(this)
 
-        button.text = text
-
+        button.text = title
         button.textSize = 11f
-
         button.setTextColor(Color.WHITE)
 
-        button.setBackgroundColor(
-            Color.TRANSPARENT
-        )
-
         button.setOnClickListener {
-            action()
+
+            when (title) {
+
+                "MEDIA" -> {
+                    openVideoPicker()
+                }
+
+                "LAYER" -> {
+                    Toast.makeText(
+                        this,
+                        "Layer tools coming next",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                "AUDIO" -> {
+                    Toast.makeText(
+                        this,
+                        "Audio tools coming next",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                "TEXT" -> {
+                    Toast.makeText(
+                        this,
+                        "Text tools coming next",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                "STICKER" -> {
+                    Toast.makeText(
+                        this,
+                        "Sticker tools coming next",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
 
-        toolbar.addView(
+        parent.addView(
             button,
             LinearLayout.LayoutParams(
                 0,
-                LinearLayout.LayoutParams.MATCH_PARENT,
+                70,
                 1f
             )
         )
     }
 
-    private fun createTopButton(
-        text: String
-    ): Button {
+    // -------------------------------------------------------------
+    // VIDEO PICKER
+    // -------------------------------------------------------------
 
-        val button = Button(this)
+    private fun openVideoPicker() {
 
-        button.text = text
-
-        button.textSize = 12f
-
-        button.setTextColor(Color.WHITE)
-
-        button.setBackgroundColor(
-            Color.TRANSPARENT
+        videoPicker.launch(
+            arrayOf(
+                "video/*"
+            )
         )
-
-        return button
     }
 
-    // =========================
-    // TIME FORMAT
-    // =========================
+    // -------------------------------------------------------------
+    // CREATE EXOPLAYER
+    // -------------------------------------------------------------
+
+    private fun createPlayer() {
+
+        player = ExoPlayer.Builder(this)
+            .build()
+
+        playerView.player = player
+
+        player?.addListener(
+            object : Player.Listener {
+
+                override fun onIsPlayingChanged(
+                    isPlaying: Boolean
+                ) {
+
+                    playButton.text =
+                        if (isPlaying) "❚❚"
+                        else "▶"
+                }
+
+                override fun onPlaybackStateChanged(
+                    playbackState: Int
+                ) {
+
+                    if (
+                        playbackState ==
+                        Player.STATE_READY
+                    ) {
+
+                        updateDuration()
+                    }
+
+                    if (
+                        playbackState ==
+                        Player.STATE_ENDED
+                    ) {
+
+                        playButton.text = "▶"
+                    }
+                }
+            }
+        )
+    }
+
+    // -------------------------------------------------------------
+    // LOAD SELECTED VIDEO
+    // -------------------------------------------------------------
+
+    private fun loadVideo(uri: Uri) {
+
+        statusText.text = "Loading video..."
+
+        val mediaItem =
+            MediaItem.fromUri(uri)
+
+        player?.setMediaItem(mediaItem)
+
+        player?.prepare()
+
+        player?.playWhenReady = false
+
+        statusText.text =
+            "Video loaded — press ▶ to play"
+
+        Toast.makeText(
+            this,
+            "Video imported successfully",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        updateDuration()
+    }
+
+    // -------------------------------------------------------------
+    // PLAY / PAUSE
+    // -------------------------------------------------------------
+
+    private fun togglePlayback() {
+
+        val currentPlayer = player
+
+        if (currentPlayer == null) {
+            return
+        }
+
+        if (currentPlayer.currentMediaItem == null) {
+
+            Toast.makeText(
+                this,
+                "Please import a video first",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        if (currentPlayer.isPlaying) {
+
+            currentPlayer.pause()
+
+        } else {
+
+            currentPlayer.play()
+        }
+    }
+
+    // -------------------------------------------------------------
+    // UPDATE VIDEO TIME
+    // -------------------------------------------------------------
+
+    private fun updateDuration() {
+
+        val duration =
+            player?.duration ?: 0L
+
+        if (duration <= 0) {
+            timeText.text = "00:00 / 00:00"
+            return
+        }
+
+        timeText.text =
+            "00:00 / ${formatTime(duration)}"
+
+        window.decorView.postDelayed(
+            object : Runnable {
+
+                override fun run() {
+
+                    val currentPlayer = player
+                        ?: return
+
+                    val position =
+                        currentPlayer.currentPosition
+
+                    val total =
+                        currentPlayer.duration
+
+                    if (total > 0) {
+
+                        val progress =
+                            ((position.toDouble() /
+                                    total.toDouble()) * 1000)
+                                .toInt()
+
+                        seekBar.progress =
+                            progress
+
+                        timeText.text =
+                            "${formatTime(position)} / " +
+                                    "${formatTime(total)}"
+                    }
+
+                    if (currentPlayer.isPlaying) {
+
+                        window.decorView.postDelayed(
+                            this,
+                            250
+                        )
+                    }
+                }
+            },
+            250
+        )
+    }
 
     private fun formatTime(
         milliseconds: Long
@@ -525,34 +654,21 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun showMessage(
-        title: String,
-        message: String
-    ) {
-
-        Toast.makeText(
-            this,
-            "$title: $message",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
+    // -------------------------------------------------------------
+    // CLEANUP
+    // -------------------------------------------------------------
 
     override fun onStop() {
 
         super.onStop()
 
-        if (::player.isInitialized) {
-            player.pause()
-        }
+        player?.pause()
     }
 
     override fun onDestroy() {
 
-        handler.removeCallbacks(updateTime)
-
-        if (::player.isInitialized) {
-            player.release()
-        }
+        player?.release()
+        player = null
 
         super.onDestroy()
     }
